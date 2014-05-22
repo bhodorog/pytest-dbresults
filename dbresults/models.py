@@ -14,13 +14,7 @@ Base = declarative_base()
 
 
 def init_engine_from(url):
-    engine = sqlalchemy.create_engine(url)
-    return engine
-
-
-def init_engine(driver="mysql", user="root", pwd="", host="localhost",
-                port=3306, db="alchemy", query=None):
-    url = sqlalchemy.engine.url.URL(driver, user, pwd, host, port, db, query)
+    url = url or "mysql://root:@localhost:3306/alchemy"
     engine = sqlalchemy.create_engine(url)
     return engine
 
@@ -53,12 +47,14 @@ class RunResult(Base):
 
 def sync():
     print "sync-ing"
-    Base.metadata.create_all(init_engine())
+    url = os.environ.get('bamboo_SQLALCHEMY_URL', None)
+    Base.metadata.create_all(init_engine_from(url))
 
 
 def drop():
     print "drop-ing"
-    Base.metadata.drop_all(init_engine())
+    url = os.environ.get('bamboo_SQLALCHEMY_URL', None)
+    Base.metadata.drop_all(init_engine_from(url))
 
 
 if __name__ == "__main__":

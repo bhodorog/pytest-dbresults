@@ -5,75 +5,54 @@ import os.path
 from datetime import datetime
 import dbresults.models
 
-test_sess = None
-sql_sess = None
 
+class ResultsToDB(object):
+    def __init__(self, alch_url):
+        self.sql_eng = dbresults.models.init_engine_from(alch_url)
+        self.sql_sess = dbresults.models.init_session(self.sql_eng)
 
-def pytest_runtest_logreport(report):
-    if report.when == "call" and sql_sess and test_sess:
-        tr = dbresults.models.RunResult(
-            name=report.nodeid, message="bubu",
-            status=report.passed, session=test_sess, duration=report.duration)
-        sql_sess.add(tr)
+    def pytest_runtest_logreport(self, report):
+        if report.when == "call":
+            tr = dbresults.models.RunResult(
+                name=report.nodeid, message="bubu",
+                status=report.passed, session=self.test_sess,
+                duration=report.duration)
+            self.sql_sess.add(tr)
+
+    def pytest_sessionstart(self, session):
+        self.test_sess = dbresults.models.TestSession(
+            date=datetime.now(),
+            name="pid_thid:{}_{}".format(
+                os.getpid(), threading.current_thread().ident))
+        self.sql_sess.add(self.test_sess)
+
+    def pytest_sessionfinish(self, session):
+        self.sql_sess.commit()
 
 
 def pytest_unconfigure(config):
-    if not config.option.dbres_url:
-        return
-    _delete_touches()
-    if sql_sess:
-        sql_sess.commit()
+    res2db = getattr(config, "_res2db", None)
+    if res2db:
+        config.pluginmanager.unregister(res2db)
 
 
 def pytest_configure(config):
-    """when xdist is installed and used from cmd line (e.g. with -n arg) this
-    hook is called 3 times, once for master ps, and again from each slave
-    ps. To avoid this when xdist is installed and used from cmd line don't init
-    db here, let the other xdist hook to do it
-    """
-    if not config.option.dbres_url:
-        return
-    if not _is_touched():
-        _touch("configure")
-        _init_db(config.option.dbres_url)
+    if config.option.sqlalch_url and not _is_running_on_slave(config):
+        config._res2db = ResultsToDB(config.option.sqlalch_url)
+        config.pluginmanager.register(config._res2db)
 
 
 def pytest_addoption(parser):
     group = parser.getgroup(
         "dbresults",
         "store results in a db with support for distributed testing")
-    group.addoption("--dbresults", action="store", dest="dbres_url")
+    group.addoption("--dbresults", action="store", dest="sqlalch_url",
+                    default=None,
+                    help="enable saving of results into a database.")
 
 
-def _init_db(alch_url):
-    global test_sess, sql_sess
-    test_sess = dbresults.models.TestSession(
-        date=datetime.now(),
-        name="pid_thid:{}_{}".format(
-            os.getpid(), threading.current_thread().ident))
-    sql_eng = dbresults.models.init_engine_from(alch_url)
-    sql_sess = dbresults.models.init_session(sql_eng)
-    sql_sess.add(test_sess)
-
-
-ID_DB_FILENAME = "id.tmp"
-
-
-def _delete_touches():
-    if os.path.exists(ID_DB_FILENAME):
-        os.remove(ID_DB_FILENAME)
-
-
-def _touch(id_msg):
-    with open(ID_DB_FILENAME, "w") as idfile:
-        idfile.write("{}\n".format(id_msg))
-
-
-def _is_touched():
-    if not os.path.exists(ID_DB_FILENAME):
-        return None
-    with open(ID_DB_FILENAME) as idfile:
-        return idfile.readline()
+def _is_running_on_slave(config):
+    return hasattr(config, 'slaveinput')
 
 
 def _debug(msg):
