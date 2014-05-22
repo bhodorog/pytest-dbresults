@@ -12,13 +12,6 @@ from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
-# ENGINE_URI = os.environ.get(
-#     "bamboo_SQLALCHEMY_URI", "mysql://root@localhost/alchemy")
-
-# engine = sqlalchemy.create_engine(ENGINE_URI)
-# session_cls = sqlalchemy.orm.sessionmaker(engine)
-# session = session_cls()
-
 
 def init_engine_from(url):
     engine = sqlalchemy.create_engine(url)
