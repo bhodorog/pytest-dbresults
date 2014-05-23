@@ -6,7 +6,7 @@ import sqlalchemy.orm
 import sqlalchemy.engine.url
 
 from sqlalchemy import (Column, Integer, String, Boolean, DateTime, ForeignKey,
-                        Float)
+                        Float, Text)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -37,8 +37,9 @@ class RunResult(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(500))
-    message = Column(String(500))
+    custom = Column(Text)
     status = Column(Boolean)
+    outcome = Column(String(100))
     session_id = Column(Integer, ForeignKey("test_sessions.id"))
     duration = Column(Float)
 

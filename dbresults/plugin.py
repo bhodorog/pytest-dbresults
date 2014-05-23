@@ -2,8 +2,19 @@ import threading
 import os
 import os.path
 
-from datetime import datetime
 import dbresults.models
+import pytest
+
+from datetime import datetime
+
+
+@pytest.fixture(scope="session")
+def dbresults_custom():
+    """ Used as a way to send custom text to the results database from within
+    the test code. Whatever you place in its dict will be saved in a TEXT
+    column.
+    """
+    return {}
 
 
 class ResultsToDB(object):
@@ -13,11 +24,16 @@ class ResultsToDB(object):
 
     def pytest_runtest_logreport(self, report):
         if report.when == "call":
-            tr = dbresults.models.RunResult(
-                name=report.nodeid, message="bubu",
+            self.tr = dbresults.models.RunResult(
+                name=report.nodeid,
                 status=report.passed, session=self.test_sess,
-                duration=report.duration)
-            self.sql_sess.add(tr)
+                outcome=report.outcome, duration=report.duration)
+
+    def pytest_runtest_makereport(self, item, call):
+        if call.when == "teardown":
+            custom = item.funcargs.get("dbresults_custom", {})
+            self.tr.custom = "{}".format(custom)
+            self.sql_sess.add(self.tr)
 
     def pytest_sessionstart(self, session):
         self.test_sess = dbresults.models.TestSession(
