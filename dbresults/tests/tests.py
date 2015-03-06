@@ -1,7 +1,7 @@
-from django.test import TestCase
+pytest_plugins = ("pytester",)
 
 
-class Test(TestCase):
-
-    def test_sample(self):
-        self.assertEqual(1+1, 2)
+def test_properly_initialized(testdir):
+    result = testdir.runpytest("--help")
+    assert result.ret == 0
+    result.fnmatch_lines("--dbresults")

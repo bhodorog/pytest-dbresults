@@ -1,7 +1,5 @@
 import threading
 import os
-import os.path
-
 import dbresults.models
 import pytest
 
